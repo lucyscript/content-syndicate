@@ -15,7 +15,8 @@ class AnalyticsServer:
     def __init__(self):
         self.mcp = FastMCP("analytics")
         self._register_tools()
-      def _register_tools(self):
+    
+    def _register_tools(self):
         """Register MCP tools"""
         
         @self.mcp.tool()

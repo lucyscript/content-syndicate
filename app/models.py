@@ -75,16 +75,22 @@ class Newsletter(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
+    subject_line = Column(String)  # Email subject line
     content = Column(Text)
     html_content = Column(Text)
     status = Column(Enum(NewsletterStatus), default=NewsletterStatus.DRAFT)
     scheduled_send_time = Column(DateTime)
+    scheduled_for = Column(DateTime)  # Alternative field name for scheduling
     sent_at = Column(DateTime)
     recipient_count = Column(Integer, default=0)
     open_rate = Column(Integer, default=0)
     click_rate = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Content generation fields
+    content_sources = Column(JSON)  # List of content sources to use
+    target_audience = Column(String)  # Target audience description
     
     # Metadata for AI generation
     source_articles = Column(JSON)  # List of source articles used

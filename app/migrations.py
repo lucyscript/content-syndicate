@@ -44,8 +44,12 @@ class MigrationManager:
         """Apply a migration"""
         with engine.connect() as conn:
             try:
-                # Execute migration SQL
-                conn.execute(text(sql))
+                # Split SQL into individual statements and execute them
+                statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip() and not stmt.strip().startswith('--')]
+                
+                for statement in statements:
+                    if statement:
+                        conn.execute(text(statement))
                 
                 # Record migration as applied
                 conn.execute(
@@ -62,9 +66,7 @@ class MigrationManager:
     def run_migrations(self):
         """Run all pending migrations"""
         self.create_migration_table()
-        applied = self.get_applied_migrations()
-        
-        # Define migrations
+        applied = self.get_applied_migrations()        # Define migrations
         migrations = [
             {
                 "name": "001_initial_schema",
@@ -84,17 +86,14 @@ class MigrationManager:
                 """
             },
             {
-                "name": "003_add_preferences_jsonb",
+                "name": "003_add_newsletter_fields",
                 "sql": """
-                    -- Ensure preferences columns are JSONB for better performance
-                    ALTER TABLE users 
-                    ALTER COLUMN preferences TYPE JSONB USING preferences::JSONB;
-                    
-                    ALTER TABLE subscribers 
-                    ALTER COLUMN preferences TYPE JSONB USING preferences::JSONB;
-                    
-                    ALTER TABLE content_sources 
-                    ALTER COLUMN filters TYPE JSONB USING filters::JSONB;
+                    ALTER TABLE newsletters ADD COLUMN subject_line VARCHAR(255);
+                    ALTER TABLE newsletters ADD COLUMN content_sources JSON;
+                    ALTER TABLE newsletters ADD COLUMN target_audience VARCHAR(500);
+                    ALTER TABLE newsletters ADD COLUMN scheduled_for TIMESTAMP;
+                    CREATE INDEX IF NOT EXISTS idx_newsletters_scheduled_for ON newsletters(scheduled_for);
+                    CREATE INDEX IF NOT EXISTS idx_newsletters_subject_line ON newsletters(subject_line);
                 """
             }
         ]

@@ -44,12 +44,11 @@ async def test_mcp_integration():
                 print(f"      ✅ {method} - Available")
             else:
                 print(f"      ❌ {method} - Missing")
-        
-        # Test Personalization
+          # Test Personalization
         print("   👥 Testing Personalization...")
         person_methods = [
-            'analyze_audience', 'segment_audience', 'personalize_content',
-            'optimize_send_time', 'generate_dynamic_subject_lines'
+            'analyze_audience_preferences', 'segment_audience', 'personalize_content',
+            'recommend_send_time', 'generate_dynamic_subject_lines'
         ]
         for method in person_methods:
             if hasattr(agent.personalization, method):
@@ -68,12 +67,11 @@ async def test_mcp_integration():
                 print(f"      ✅ {method} - Available")
             else:
                 print(f"      ❌ {method} - Missing")
-        
-        # Test Analytics
+          # Test Analytics
         print("   📊 Testing Analytics...")
         analytics_methods = [
-            'track_newsletter_open', 'track_link_click', 'generate_report',
-            'track_subscription', 'get_engagement_metrics', 'export_data'
+            'track_newsletter_performance_impl', 'analyze_content_performance_impl', 'generate_audience_insights_impl',
+            'create_performance_dashboard_impl', 'predict_engagement_impl', 'analyze_ab_test_results_impl'
         ]
         for method in analytics_methods:
             if hasattr(agent.analytics, method):

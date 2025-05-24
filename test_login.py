@@ -7,12 +7,13 @@ import requests
 import json
 
 # API base URL
-BASE_URL = "http://localhost:8002"
+BASE_URL = "http://localhost:8000"
 
 def test_login():
     """Test user login endpoint"""
     
-    # First, let's register a test user if one doesn't exist    register_data = {
+    # First, let's register a test user if one doesn't exist    
+    register_data = {
         "email": "test@example.com",
         "full_name": "Test User",
         "password": "testpassword123"
