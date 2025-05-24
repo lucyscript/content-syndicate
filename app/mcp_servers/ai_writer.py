@@ -20,7 +20,7 @@ class AIWriterServer:
     def _setup_ai(self):
         """Initialize Gemini AI"""
         genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
     
     def _register_tools(self):
         """Register MCP tools"""
@@ -449,14 +449,30 @@ class AIWriterServer:
                 current_text = []
             else:
                 current_text.append(line)
-        
-        # Add the last section
+          # Add the last section
         if current_text:
             sections[current_section] = '\n'.join(current_text)
         
-        # If no specific sections found, put everything in content
-        if len(sections) == 1 and "content" in sections:
-            sections = {"full_content": response_text}
+        # Always create a full_content field by combining all sections
+        if len(sections) > 1:
+            # Combine sections in a logical order
+            full_content_parts = []
+            if "headline" in sections:
+                full_content_parts.append(f"# {sections['headline']}")
+            if "introduction" in sections:
+                full_content_parts.append(sections['introduction'])
+            if "content" in sections:
+                full_content_parts.append(sections['content'])
+            if "conclusion" in sections:
+                full_content_parts.append(sections['conclusion'])
+            if "call_to_action" in sections:
+                full_content_parts.append(sections['call_to_action'])
+            
+            sections["full_content"] = '\n\n'.join(full_content_parts)
+        elif len(sections) == 1 and "content" in sections:
+            sections["full_content"] = sections["content"]
+        else:
+            sections["full_content"] = response_text
         
         return sections
     

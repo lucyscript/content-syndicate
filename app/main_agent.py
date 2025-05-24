@@ -5,7 +5,7 @@ Orchestrates all MCP servers to create personalized newsletters
 import asyncio
 import json
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import google.generativeai as genai
 
 from .config import settings
@@ -127,8 +127,7 @@ class ContentSyndicateAgent:
         aggregated_content = []
         source_results = {}
         
-        try:
-            # Reddit content
+        try:            # Reddit content
             if "reddit" in content_sources:
                 reddit_config = config.get("reddit", {})
                 reddit_content = await self.content_aggregator.fetch_reddit_content(
@@ -138,13 +137,14 @@ class ContentSyndicateAgent:
                     time_filter=reddit_config.get("time_filter", "day")
                 )
                 
-                if not reddit_content.get("error"):
+                if isinstance(reddit_content, list):
                     aggregated_content.extend(reddit_content)
                     source_results["reddit"] = {"count": len(reddit_content), "status": "success"}
-                else:
+                elif isinstance(reddit_content, dict) and reddit_content.get("error"):
                     source_results["reddit"] = {"count": 0, "status": "failed", "error": reddit_content["error"]}
-            
-            # Twitter content
+                else:
+                    source_results["reddit"] = {"count": 0, "status": "failed", "error": "Unknown response format"}
+              # Twitter content
             if "twitter" in content_sources:
                 twitter_config = config.get("twitter", {})
                 twitter_content = await self.content_aggregator.fetch_twitter_content(
@@ -152,13 +152,14 @@ class ContentSyndicateAgent:
                     max_results=twitter_config.get("max_results", 10)
                 )
                 
-                if not twitter_content.get("error"):
+                if isinstance(twitter_content, list):
                     aggregated_content.extend(twitter_content)
                     source_results["twitter"] = {"count": len(twitter_content), "status": "success"}
-                else:
+                elif isinstance(twitter_content, dict) and twitter_content.get("error"):
                     source_results["twitter"] = {"count": 0, "status": "failed", "error": twitter_content["error"]}
-            
-            # News API content
+                else:
+                    source_results["twitter"] = {"count": 0, "status": "failed", "error": "Unknown response format"}
+              # News API content
             if "news" in content_sources:
                 news_config = config.get("news", {})
                 news_content = await self.content_aggregator.fetch_news_content(
@@ -168,12 +169,13 @@ class ContentSyndicateAgent:
                     page_size=news_config.get("page_size", 20)
                 )
                 
-                if not news_content.get("error"):
+                if isinstance(news_content, list):
                     aggregated_content.extend(news_content)
                     source_results["news"] = {"count": len(news_content), "status": "success"}
-                else:
+                elif isinstance(news_content, dict) and news_content.get("error"):
                     source_results["news"] = {"count": 0, "status": "failed", "error": news_content["error"]}
-              # RSS feeds
+                else:
+                    source_results["news"] = {"count": 0, "status": "failed", "error": "Unknown response format"}            # RSS feeds
             if "rss" in content_sources:
                 rss_feeds = config.get("rss_feeds", [])
                 rss_content = []
@@ -182,8 +184,12 @@ class ContentSyndicateAgent:
                         feed_url=feed_url,
                         max_entries=10
                     )
-                    if not feed_content.get("error"):
+                    if isinstance(feed_content, list):
                         rss_content.extend(feed_content)
+                    elif isinstance(feed_content, dict) and not feed_content.get("error"):
+                        # Handle dict response that's not an error
+                        if "items" in feed_content:
+                            rss_content.extend(feed_content["items"])
                 
                 aggregated_content.extend(rss_content)
                 source_results["rss"] = {"count": len(rss_content), "status": "success"}
@@ -236,8 +242,7 @@ class ContentSyndicateAgent:
                 has_exclude = any(keyword.lower() in text_content for keyword in exclude_keywords)
                 if has_exclude:
                     continue
-            
-            # Score content based on engagement (if available)
+              # Score content based on engagement (if available)
             engagement_score = 0
             if item.get("score"):  # Reddit
                 engagement_score = min(100, max(0, item["score"] / 100))
@@ -245,15 +250,17 @@ class ContentSyndicateAgent:
                 engagement_score = min(100, max(0, item["like_count"] / 100))
             elif item.get("publishedAt"):  # News - score by recency
                 pub_date = datetime.fromisoformat(item["publishedAt"].replace('Z', '+00:00'))
-                hours_old = (datetime.utcnow() - pub_date).total_seconds() / 3600
+                # Make now() timezone-aware to match pub_date
+                now_utc = datetime.now(timezone.utc) # Changed from datetime.utcnow()
+                hours_old = (now_utc - pub_date).total_seconds() / 3600
                 engagement_score = max(0, 100 - hours_old)
             
             item["relevance_score"] = engagement_score
             item["analyzed_at"] = datetime.utcnow().isoformat()
             
-            filtered_content.append(item)
-        
-        # Sort by relevance score and limit        filtered_content.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+            filtered_content.append(item)        
+        # Sort by relevance score and limit
+        filtered_content.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
         max_items = config.get("max_content_items", 15)
         
         return filtered_content[:max_items]

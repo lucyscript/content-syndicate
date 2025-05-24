@@ -201,7 +201,19 @@ async def generate_newsletter_content(
         )
         
         generation_time = (datetime.now() - start_time).total_seconds()
-          # Extract content from the AI result
+        
+        # Debug logging
+        print(f"🔍 Debug - Result success: {result.get('success')}")
+        print(f"🔍 Debug - Newsletter in result: {'newsletter' in result}")
+        if 'newsletter' in result:
+            newsletter_data = result.get("newsletter", {})
+            print(f"🔍 Debug - Newsletter success: {newsletter_data.get('success')}")
+            print(f"🔍 Debug - Content in newsletter: {'content' in newsletter_data}")
+            if 'content' in newsletter_data:
+                content_data = newsletter_data.get("content", {})
+                print(f"🔍 Debug - Full content length: {len(content_data.get('full_content', ''))}")
+        
+        # Extract content from the AI result
         newsletter_data = result.get("newsletter", {})
         content_text = ""
         subject_line = ""
