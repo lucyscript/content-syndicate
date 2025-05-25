@@ -97,6 +97,74 @@ User Input → Master Agent (Gemini) → Specialized MCP Servers → Content Out
 - [ ] Simple dashboard
 - [ ] Stripe payment integration
 
+## 🐳 Docker Setup
+
+### Prerequisites
+- Docker Desktop installed and running
+- Git (to clone the repository)
+
+### Quick Start
+
+1. **Clone and navigate to the repository**
+```bash
+git clone <repository-url>
+cd ContentSyndicate
+```
+
+2. **Set up environment variables**
+```powershell
+# Copy the example environment file (ONLY if .env doesn't exist)
+Copy-Item .env.example .env
+
+# Edit .env with your actual API keys and secrets
+notepad .env  # or use your preferred editor
+```
+
+3. **Run the setup script (recommended)**
+```powershell
+.\setup.ps1
+```
+
+**OR manually start the services:**
+```powershell
+docker-compose up -d --build
+```
+
+### Environment Variables Required
+
+Make sure to configure these in your `.env` file:
+- `GOOGLE_AI_API_KEY` - For AI content generation
+- `SENDGRID_API_KEY` - For email delivery
+- `STRIPE_SECRET_KEY` - For payments
+- `TWITTER_API_KEY` - For Twitter content aggregation
+- `REDDIT_CLIENT_ID` - For Reddit content aggregation
+
+### Service URLs
+- **API**: http://localhost:8000
+- **Health Check**: http://localhost:8000/health
+- **Database**: localhost:5432
+- **Redis**: localhost:6379
+
+### Useful Commands
+```powershell
+# View logs
+docker-compose logs -f
+
+# Check service status
+docker-compose ps
+
+# Stop services
+docker-compose down
+
+# Rebuild and restart
+docker-compose up -d --build
+
+# Production deployment
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+⚠️ **Important**: Never commit your `.env` file to version control. It contains sensitive API keys.
+
 ## 🚀 Next Steps
 
 1. Validate demand with landing page + waitlist
