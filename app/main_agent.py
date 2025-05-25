@@ -14,6 +14,7 @@ from .mcp_servers.ai_writer import create_ai_writer_server
 from .mcp_servers.personalization import create_personalization_server
 from .mcp_servers.distribution import create_distribution_server
 from .mcp_servers.analytics import create_analytics_server
+from .mcp_servers.topic_generator import create_topic_generator_server
 
 
 class ContentSyndicateAgent:
@@ -28,13 +29,13 @@ class ContentSyndicateAgent:
         # Initialize Gemini AI
         genai.configure(api_key=settings.gemini_api_key)
         self.gemini_model = genai.GenerativeModel('gemini-pro')
-        
-        # Initialize MCP servers
+          # Initialize MCP servers
         self.content_aggregator = create_content_aggregator_server()
         self.ai_writer = create_ai_writer_server()
         self.personalization = create_personalization_server()
         self.distribution = create_distribution_server()
         self.analytics = create_analytics_server()
+        self.topic_generator = create_topic_generator_server()
         
         print(f"🤖 {self.name} v{self.version} initialized successfully!")
     
@@ -254,11 +255,9 @@ class ContentSyndicateAgent:
                 now_utc = datetime.now(timezone.utc) # Changed from datetime.utcnow()
                 hours_old = (now_utc - pub_date).total_seconds() / 3600
                 engagement_score = max(0, 100 - hours_old)
-            
             item["relevance_score"] = engagement_score
             item["analyzed_at"] = datetime.utcnow().isoformat()
-            
-            filtered_content.append(item)        
+            filtered_content.append(item)
         # Sort by relevance score and limit
         filtered_content.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
         max_items = config.get("max_content_items", 15)
@@ -270,18 +269,61 @@ class ContentSyndicateAgent:
         filtered_content: List[Dict[str, Any]], 
         config: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Generate newsletter content using AI Writer"""
+        """Generate newsletter content using AI Writer with enhanced topic matching"""
         if not filtered_content:
             return {"error": "No content available for newsletter generation"}
         
         try:
+            # Get topic matching data if topic is specified
+            topic_matching_data = None
+            newsletter_topic = config.get("topic", "")
+            
+            if newsletter_topic:
+                # Use Topic Generator to analyze content relevance to the newsletter topic
+                topic_match_result = await self.topic_generator.match_content_to_topics_impl(
+                    user_topics=[newsletter_topic],
+                    content_data=filtered_content,
+                    relevance_threshold=0.3
+                )
+                
+                if not topic_match_result.get("error"):
+                    # Extract topic analysis and content matches
+                    matched_content = topic_match_result.get("matched_content", {})
+                    topic_data = matched_content.get(newsletter_topic, {})
+                    
+                    # Combine all relevance levels for content matches
+                    all_matches = (
+                        topic_data.get("high_relevance", []) +
+                        topic_data.get("medium_relevance", []) +
+                        topic_data.get("low_relevance", [])
+                    )
+                    
+                    # Create enhanced topic matching data for AI Writer
+                    topic_matching_data = {
+                        "topic_analysis": {
+                            "primary_topic": newsletter_topic,
+                            "confidence_score": len(topic_data.get("high_relevance", [])) / max(len(filtered_content), 1),
+                            "key_themes": [newsletter_topic],
+                            "categories": [config.get("target_audience", "general")]
+                        },
+                        "content_matches": all_matches,
+                        "match_stats": {
+                            "total_analyzed": len(filtered_content),
+                            "high_relevance_count": len(topic_data.get("high_relevance", [])),
+                            "medium_relevance_count": len(topic_data.get("medium_relevance", [])),
+                            "low_relevance_count": len(topic_data.get("low_relevance", []))
+                        }
+                    }
+            
+            # Generate newsletter content with topic matching data
             newsletter_content = await self.ai_writer.generate_newsletter_content(
                 source_articles=filtered_content,
-                newsletter_topic=config.get("topic", ""),
+                newsletter_topic=newsletter_topic,
                 target_audience=config.get("target_audience", "general"),
                 tone=config.get("tone", "professional"),
                 length=config.get("length", "medium"),
-                include_sections=config.get("sections", ["introduction", "main_content", "conclusion", "call_to_action"])
+                include_sections=config.get("sections", ["introduction", "main_content", "conclusion", "call_to_action"]),
+                topic_matching_data=topic_matching_data
             )
             
             # Generate subject lines
@@ -290,13 +332,17 @@ class ContentSyndicateAgent:
                 subject_lines = await self.ai_writer.generate_subject_lines(
                     newsletter_content=content_text,
                     count=5,
-                    style=config.get("subject_style", "engaging")            )
+                    style=config.get("subject_style", "engaging")
+                )
+                
+                # Add subject lines to response if generated successfully
+                if subject_lines:
+                    newsletter_content["subject_lines"] = subject_lines
             
             return newsletter_content
             
         except Exception as e:
             return {"error": f"Newsletter generation failed: {str(e)}"}
-    
     async def _personalize_content(
         self, 
         user_id: int, 

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+import logging
 
 from ..database import get_db
 from ..models import User, ContentSource
@@ -16,11 +17,17 @@ from ..schemas import (
 )
 from ..auth import get_current_active_user
 from ..mcp_servers.content_aggregator import ContentAggregatorServer
+from ..mcp_servers.topic_generator import TopicGeneratorServer
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Initialize content aggregator
 content_aggregator = ContentAggregatorServer()
+
+# Initialize topic generator
+topic_generator = TopicGeneratorServer()
 
 @router.post("/sources", response_model=ContentSourceResponse, status_code=status.HTTP_201_CREATED)
 async def create_content_source(
@@ -326,3 +333,212 @@ async def get_supported_platforms():
     ]
     
     return {"platforms": platforms}
+
+@router.get("/topics/trending")
+async def get_trending_topics(
+    platforms: Optional[str] = None,
+    limit: int = 20,
+    categories: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get trending topics from multiple platforms"""
+    
+    try:
+        platforms_list = platforms.split(",") if platforms else ["reddit", "twitter", "news"]
+        categories_list = categories.split(",") if categories else None
+        
+        result = await topic_generator.fetch_trending_topics_impl(
+            platforms=platforms_list,
+            limit=limit,
+            categories=categories_list
+        )
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch trending topics: {str(e)}"
+        )
+
+@router.get("/topics/generate")
+async def generate_random_topics(
+    count: int = 10,
+    niche: str = "general",
+    tone: str = "professional",
+    current_user: User = Depends(get_current_active_user)
+):
+    """Generate random topic suggestions using AI"""
+    
+    try:
+        result = await topic_generator.generate_random_topics_impl(
+            count=count,
+            niche=niche,
+            tone=tone
+        )
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate topics: {str(e)}"
+        )
+
+@router.post("/topics/match")
+async def match_content_to_topics(
+    request: dict,  # Contains user_topics, content_data, relevance_threshold
+    current_user: User = Depends(get_current_active_user)
+):
+    """Match API content to user-defined topics with relevance scoring"""
+    
+    try:
+        user_topics = request.get("user_topics", [])
+        content_data = request.get("content_data", [])
+        relevance_threshold = request.get("relevance_threshold", 0.3)
+        
+        if not user_topics:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="user_topics is required"
+            )
+        
+        result = await topic_generator.match_content_to_topics_impl(
+            user_topics=user_topics,
+            content_data=content_data,
+            relevance_threshold=relevance_threshold
+        )
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to match content to topics: {str(e)}"
+        )
+
+@router.get("/topics/suggestions")
+async def get_topic_suggestions_enhanced(
+    topic: Optional[str] = None,
+    audience: Optional[str] = None,
+    include_trending: bool = True,
+    include_ai_generated: bool = True,
+    limit: int = 10,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Enhanced content suggestions that combine trending topics with AI-generated ideas"""
+    
+    try:
+        suggestions = []
+        
+        # Get user's content sources for personalization
+        user_sources = db.query(ContentSource).filter(
+            ContentSource.user_id == current_user.id,
+            ContentSource.is_active == True
+        ).all()
+        
+        # Generate trending topic suggestions
+        if include_trending:
+            trending_result = await topic_generator.fetch_trending_topics_impl(
+                platforms=["reddit", "twitter", "news"],
+                limit=limit // 2 if include_ai_generated else limit
+            )
+            
+            trending_topics = trending_result.get("trending_topics", [])
+            for topic_data in trending_topics:
+                suggestions.append({
+                    "type": "trending",
+                    "title": topic_data.get("title", ""),
+                    "description": topic_data.get("description", ""),
+                    "source": "trending_analysis",
+                    "trend_data": topic_data.get("trend_data", {}),
+                    "relevance_score": 0.8  # High relevance for trending
+                })
+        
+        # Generate AI topic suggestions
+        if include_ai_generated:
+            niche = "tech" if not topic else topic
+            ai_result = await topic_generator.generate_random_topics_impl(
+                count=limit // 2 if include_trending else limit,
+                niche=niche,
+                tone="professional"
+            )
+            
+            ai_topics = ai_result.get("topics", [])
+            for topic_data in ai_topics:
+                suggestions.append({
+                    "type": "ai_generated",
+                    "title": topic_data.get("title", ""),
+                    "description": topic_data.get("description", ""),
+                    "source": "ai_generation",
+                    "audience": topic_data.get("audience", ""),
+                    "keywords": topic_data.get("keywords", []),
+                    "relevance_score": 0.7  # Good relevance for AI-generated
+                })
+        
+        # If user has specific topic, try to match content
+        if topic and user_sources:
+            matched_content = []
+            
+            # Fetch content from user's sources
+            for source in user_sources[:3]:  # Limit to first 3 sources
+                try:
+                    if source.platform == "reddit":
+                        content = await content_aggregator.fetch_reddit_content(
+                            subreddit=source.query, limit=10
+                        )
+                    elif source.platform == "twitter":
+                        content = await content_aggregator.fetch_twitter_content(
+                            query=source.query, max_results=10
+                        )
+                    elif source.platform == "news":
+                        content = await content_aggregator.fetch_news_content(
+                            query=source.query, page_size=10
+                        )
+                    else:
+                        continue
+                    
+                    matched_content.extend(content)
+                except Exception as e:
+                    logger.error(f"Error fetching content from {source.platform}: {e}")
+            
+            # Match content to user topic
+            if matched_content:
+                match_result = await topic_generator.match_content_to_topics_impl(
+                    user_topics=[topic],
+                    content_data=matched_content,
+                    relevance_threshold=0.3
+                )
+                
+                matched_suggestions = match_result.get("matched_content", {}).get(topic, {})
+                high_relevance = matched_suggestions.get("high_relevance", [])
+                
+                for content in high_relevance[:5]:  # Top 5 matches
+                    suggestions.append({
+                        "type": "content_match",
+                        "title": f"Analysis: {content.get('title', '')[:60]}...",
+                        "description": f"Dive deeper into this trending topic based on recent content from {content.get('platform', 'unknown')}",
+                        "source": "content_matching",
+                        "original_content": content,
+                        "relevance_score": content.get("relevance_score", 0.5)
+                    })
+        
+        # Sort by relevance score and limit results
+        suggestions.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+        suggestions = suggestions[:limit]
+        
+        return {
+            "suggestions": suggestions,
+            "total": len(suggestions),
+            "user_topic": topic,
+            "audience": audience,
+            "sources_analyzed": len(user_sources),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate enhanced suggestions: {str(e)}"
+        )
