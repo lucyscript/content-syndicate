@@ -20,14 +20,14 @@ class Settings(BaseSettings):
     reddit_client_id: Optional[str] = None
     reddit_client_secret: Optional[str] = None
     reddit_user_agent: str = "ContentSyndicate/1.0"
-    
-    twitter_bearer_token: Optional[str] = None
+      twitter_bearer_token: Optional[str] = None
     twitter_api_key: Optional[str] = None
     twitter_api_secret: Optional[str] = None
     twitter_access_token: Optional[str] = None
     twitter_access_token_secret: Optional[str] = None
-      # Database - Use SQLite for development by default
-    database_url: str = "sqlite:///./contentsyndicate.db"
+    
+    # Database - Use SQLite for development by default
+    database_url: str = "sqlite:///./db/contentsyndicate.db"
     redis_url: str = "redis://localhost:6379"
     
     # Application
