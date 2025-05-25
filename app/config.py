@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # API Keys - Optional for development
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-pro"
+    gemini_model: str = "gemini-2.0-flash"
     sendgrid_api_key: Optional[str] = None
     stripe_secret_key: Optional[str] = None
     stripe_publishable_key: Optional[str] = None
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     reddit_client_id: Optional[str] = None
     reddit_client_secret: Optional[str] = None
     reddit_user_agent: str = "ContentSyndicate/1.0"
-      twitter_bearer_token: Optional[str] = None
+    twitter_bearer_token: Optional[str] = None
     twitter_api_key: Optional[str] = None
     twitter_api_secret: Optional[str] = None
     twitter_access_token: Optional[str] = None

@@ -28,7 +28,7 @@ class ContentSyndicateAgent:
         
         # Initialize Gemini AI
         genai.configure(api_key=settings.gemini_api_key)
-        self.gemini_model = genai.GenerativeModel('gemini-pro')
+        self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')
           # Initialize MCP servers
         self.content_aggregator = create_content_aggregator_server()
         self.ai_writer = create_ai_writer_server()
