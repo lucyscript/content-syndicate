@@ -1,0 +1,144 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: contentsyndicate
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+    ports:
+      - "0.0.0.0:5432:5432"  # Accessible from other machines
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "0.0.0.0:6379:6379"  # Accessible from other machines
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Main application
+  app:
+    build: .
+    ports:
+      - "0.0.0.0:8000:8000"  # Accessible from other machines
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/contentsyndicate
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      # Enable hot reload for FastAPI
+      - PYTHONPATH=/app
+      - WATCHDOG_ENABLED=true
+    volumes:
+      # Mount source code for hot reload
+      - ./app:/app/app
+      - ./logs:/app/logs
+      # Optional: Mount requirements for easy dependency changes
+      - ./requirements.txt:/app/requirements.txt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Override command for development with hot reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Next.js application (Development Mode)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      target: development
+    ports:
+      - "0.0.0.0:3000:3000"  # Accessible from other machines
+    environment:
+      - NODE_ENV=development
+      # Use your machine's IP for API calls from other devices
+      - NEXT_PUBLIC_API_URL=http://192.168.10.139:8000
+      # Enable hot reload
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - ./frontend/next.config.js:/app/next.config.js
+      - ./frontend/tailwind.config.ts:/app/tailwind.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
+      # Exclude node_modules from mounting (use container's version)
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - app
+    # Override command for development
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery worker for background tasks
+  celery:
+    build: .
+    command: celery -A app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/contentsyndicate
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
+    volumes:
+      # Mount source code for hot reload
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build: .
+    command: celery -A app.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/contentsyndicate
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
+    volumes:
+      # Mount source code for hot reload
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

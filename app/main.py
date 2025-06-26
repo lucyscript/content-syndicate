@@ -11,7 +11,7 @@ import uvicorn
 import logging
 
 from .database import create_tables, get_db
-from .routes import auth, newsletters, content, users, analytics, subscriptions
+from .routes import auth, newsletters, content, users, analytics, subscriptions, content_hub, platforms
 from .config import settings
 
 # Configure logging
@@ -56,8 +56,14 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(newsletters.router, prefix="/api/newsletters", tags=["Newsletters"])
 app.include_router(content.router, prefix="/api/content", tags=["Content"])
+app.include_router(content_hub.router, prefix="/api/content-hub", tags=["Content Hub"])
+app.include_router(platforms.router, prefix="/api/platforms", tags=["Platform Connections"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
+
+# Import and include multi-format router
+from .routes import multi_format
+app.include_router(multi_format.router, prefix="/api/multi-format", tags=["Multi-Format Generation"])
 
 @app.get("/")
 async def root():

@@ -14,7 +14,9 @@ import {
   Plus,
   Calendar,
   BarChart3,
-  Clock
+  Clock,
+  Zap,
+  Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency, formatRelativeDate } from '@/lib/utils'
@@ -293,6 +295,50 @@ export default function DashboardPage() {
                   <span className="font-semibold text-orange-700">View Analytics</span>
                 </Button>
               </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Content Hub Feature Card */}
+        <Card className="mb-6 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Zap className="h-6 w-6 mr-2 text-purple-600" />
+              Multi-Format Content Hub
+            </CardTitle>
+            <CardDescription>
+              Generate content for all platforms from a single source. Create newsletters, social posts, and articles in one click.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <Sparkles className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+                <div className="font-semibold text-sm">AI Generation</div>
+                <div className="text-xs text-muted-foreground">12 content formats</div>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                <div className="font-semibold text-sm">Cross-Platform</div>
+                <div className="text-xs text-muted-foreground">8+ platforms</div>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <Clock className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+                <div className="font-semibold text-sm">Time Saving</div>
+                <div className="text-xs text-muted-foreground">75% faster</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href="/dashboard/content-hub">
+                <Button className="flex-1">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Launch Content Hub
+                </Button>
+              </Link>
+              <Button variant="outline">
+                <Eye className="w-4 h-4 mr-2" />
+                Watch Demo
+              </Button>
             </div>
           </CardContent>
         </Card>

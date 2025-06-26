@@ -1,9 +1,7 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
+  "/dashboard/hub/page": "app/dashboard/hub/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/newsletters/[id]/preview/page": "app/dashboard/newsletters/[id]/preview/page.js",
-  "/auth/login/page": "app/auth/login/page.js",
-  "/dashboard/newsletters/page": "app/dashboard/newsletters/page.js",
   "/dashboard/newsletters/new/page": "app/dashboard/newsletters/new/page.js",
+  "/dashboard/content-hub/page": "app/dashboard/content-hub/page.js",
   "/dashboard/content/page": "app/dashboard/content/page.js"
 }
